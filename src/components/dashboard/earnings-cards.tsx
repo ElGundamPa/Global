@@ -11,12 +11,13 @@ export function EarningsCards() {
   const [last24h, setLast24h] = useState(0);
 
   useEffect(() => {
-    setBalance(getUserBalance());
+    const currentBalance = getUserBalance();
+    setBalance(currentBalance);
     
     // Simulate 24h change (en producción vendría de la API)
-    const mockChange = balance.totalProfitLoss * 0.1; // 10% del profit total
+    const mockChange = currentBalance.totalProfitLoss * 0.1; // 10% del profit total
     setLast24h(mockChange);
-  }, [balance.totalProfitLoss]);
+  }, []); // Solo ejecutar una vez al montar
 
   // Generate mini chart data
   const generateMiniChartData = (isPositive: boolean) => {

@@ -7,9 +7,9 @@ import { getPerformanceHistory, getUserBalance } from "@/lib/user-balance";
 
 export function PatrimonyChart() {
   const [data, setData] = useState<any[]>([]);
-  const balance = getUserBalance();
 
   useEffect(() => {
+    const balance = getUserBalance();
     // Generate monthly data for the last 12 months
     const months = ['Nov', 'Dic', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct'];
     const performanceHistory = getPerformanceHistory();
@@ -41,7 +41,9 @@ export function PatrimonyChart() {
       });
       setData(monthlyData);
     }
-  }, [balance]);
+  }, []); // Solo ejecutar una vez al montar
+
+  const balance = getUserBalance();
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
