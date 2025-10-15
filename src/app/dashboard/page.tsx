@@ -8,6 +8,8 @@ import { HarvestCard } from "@/components/dashboard/harvest-card";
 import { ProgressChart } from "@/components/dashboard/progress-chart";
 import { InvestmentsTable } from "@/components/dashboard/investments-table";
 import { GlobalStats } from "@/components/dashboard/global-stats";
+import { EarningsCards } from "@/components/dashboard/earnings-cards";
+import { PatrimonyChart } from "@/components/dashboard/patrimony-chart";
 import { Search, Settings, Sun } from "lucide-react";
 import { getCurrentUser, isAuthenticated } from "@/lib/auth";
 import { motion } from "framer-motion";
@@ -100,6 +102,12 @@ export default function DashboardPage() {
 
           {/* Global Statistics */}
           <GlobalStats />
+
+          {/* Earnings Cards */}
+          <EarningsCards />
+
+          {/* Patrimony Chart */}
+          <PatrimonyChart />
 
           {/* Wallet Section */}
           <motion.div 

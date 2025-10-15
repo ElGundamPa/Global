@@ -7,6 +7,8 @@ import Link from "next/link";
 import { getPortfolio, PortfolioItem, calculatePortfolioValue } from "@/lib/portfolio";
 import { getAssetById } from "@/lib/assets-data";
 import { getAllAssets } from "@/lib/mock-data";
+import { TradingAssetsCards } from "@/components/dashboard/trading-assets-cards";
+import { CircularProgress } from "@/components/dashboard/circular-progress";
 
 export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
@@ -61,6 +63,19 @@ export default function PortfolioPage() {
 
   const isPositive = profitLoss >= 0;
 
+  // Get top 6 assets for trading cards
+  const allAssets = getAllAssets();
+  const topAssets = allAssets.slice(0, 6).map(asset => ({
+    symbol: asset.symbol,
+    name: asset.name,
+    price: asset.price,
+    change: asset.change24h,
+    changePercent: asset.changePercent24h,
+    chartData: Array.from({ length: 20 }, (_, i) => 
+      asset.price + (Math.random() - 0.5) * (asset.price * 0.1)
+    ),
+  }));
+
   return (
     <main className="flex-1 overflow-y-auto p-8 bg-black">
       <motion.div
@@ -69,10 +84,31 @@ export default function PortfolioPage() {
         transition={{ duration: 0.5 }}
       >
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Mi Portafolio</h1>
-          <p className="text-gray-400">Seguimiento de tus inversiones y rendimiento</p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2">Portafolio</h1>
+            <p className="text-gray-400">Seguimiento de tus inversiones y rendimiento</p>
+          </div>
+          <div className="flex gap-2">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-green-600/20 border border-green-500/50 text-green-400 text-xs font-semibold rounded-lg hover:bg-green-600/30 transition-all"
+            >
+              Renta fija
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-4 py-2 bg-yellow-600/20 border border-yellow-500/50 text-yellow-400 text-xs font-semibold rounded-lg hover:bg-yellow-600/30 transition-all"
+            >
+              Renta variable 2.0
+            </motion.button>
+          </div>
         </div>
+
+        {/* Trading Assets Cards */}
+        <TradingAssetsCards assets={topAssets} />
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -157,11 +193,84 @@ export default function PortfolioPage() {
           </motion.div>
         </div>
 
+        {/* Financial Progress and Benefits */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Tu progreso financiero */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-[#0a0a0f] border border-white/10 rounded-xl p-6 shadow-lg shadow-white/5"
+          >
+            <h2 className="text-xl font-bold text-white mb-2">Tu progreso financiero</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Rendimiento acumulado de Renta fija y Renta variable
+            </p>
+            <div className="flex items-center gap-4 mb-4 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span className="text-gray-300">Renta fija</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                <span className="text-gray-300">Renta variable</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-gray-400 text-sm">Últimos 6 meses</p>
+                <p className="text-white text-lg font-semibold">
+                  Ganancias: ${profitLoss.toFixed(2)}
+                </p>
+              </div>
+              <div className="flex items-center justify-center">
+                <CircularProgress 
+                  percentage={Math.abs(profitLossPercent)} 
+                  size={160}
+                  strokeWidth={12}
+                  color={isPositive ? "#00FF87" : "#EF4444"}
+                />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Beneficios activos */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6 }}
+            className="bg-[#0a0a0f] border border-white/10 rounded-xl p-6 shadow-lg shadow-white/5"
+          >
+            <h2 className="text-xl font-bold text-white mb-2">Beneficios activos</h2>
+            <p className="text-gray-400 text-sm mb-6">
+              Observa en tiempo real cómo tus inversiones generan ganancias. Estos son tus beneficios actuales.
+            </p>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <div className="text-3xl font-bold text-white mb-2">
+                  ${(profitLoss * 0.6).toFixed(2)}
+                </div>
+                <div className={`text-sm font-semibold ${isPositive ? 'text-fortune-green' : 'text-red-400'}`}>
+                  {isPositive ? '↑' : '↓'}{Math.abs(profitLossPercent * 0.6).toFixed(2)}%
+                </div>
+              </div>
+              <div>
+                <div className="text-3xl font-bold text-white mb-2">
+                  ${(profitLoss * 0.4).toFixed(2)}
+                </div>
+                <div className={`text-sm font-semibold ${isPositive ? 'text-fortune-green' : 'text-red-400'}`}>
+                  {isPositive ? '↑' : '↓'}{Math.abs(profitLossPercent * 0.4).toFixed(2)}%
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
         {/* Allocation Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
+          transition={{ delay: 0.7 }}
           className="bg-[#0a0a0f] border border-white/10 rounded-xl p-6 mb-8 shadow-lg shadow-white/5"
         >
           <h2 className="text-xl font-bold text-white mb-6">Distribución del Portafolio</h2>
