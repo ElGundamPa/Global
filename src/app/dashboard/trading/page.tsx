@@ -8,6 +8,7 @@ import { getAllAssets, generatePriceUpdate } from "@/lib/mock-data";
 import { getUserBalance, recalculatePortfolio } from "@/lib/user-balance";
 import { LiveChart } from "@/components/dashboard/live-chart";
 import { TradePanel } from "@/components/dashboard/trade-panel";
+import { LineChart, Line, ResponsiveContainer } from "recharts";
 import type { Asset } from "@/types";
 
 export default function TradingPage() {
@@ -17,6 +18,8 @@ export default function TradingPage() {
   const [isLive, setIsLive] = useState(true);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [balance, setBalance] = useState(getUserBalance());
+  const [activeFilter, setActiveFilter] = useState<'all' | 'indices' | 'stocks' | 'crypto'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Initialize assets
   useEffect(() => {
@@ -90,74 +93,132 @@ export default function TradingPage() {
     setBalance(getUserBalance());
   };
 
-  const stockAssets = assets.filter(a => a.type === 'stock');
-  const cryptoAssets = assets.filter(a => a.type === 'crypto');
-  const forexAssets = assets.filter(a => a.type === 'forex');
+  // Filter assets based on active filter and search
+  const filteredAssets = assets.filter(asset => {
+    const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         asset.symbol.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    if (!matchesSearch) return false;
 
-  const AssetRow = ({ asset, index }: { asset: Asset; index: number }) => {
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'stocks') return asset.type === 'stock';
+    if (activeFilter === 'crypto') return asset.type === 'crypto';
+    if (activeFilter === 'indices') return asset.type === 'forex'; // Usando forex como índices
+    
+    return true;
+  });
+
+  // Generate sparkline data for each asset
+  const generateSparklineData = (price: number) => {
+    return Array.from({ length: 20 }, (_, i) => {
+      const variation = (Math.random() - 0.5) * (price * 0.05);
+      return price + variation;
+    });
+  };
+
+  const AssetTableRow = ({ asset, index }: { asset: Asset; index: number }) => {
     const isPositive = asset.changePercent24h >= 0;
     const priceChange = priceChanges[asset.id];
+    const sparklineData = generateSparklineData(asset.price).map(value => ({ value }));
+
+    // Generar logo basado en el símbolo
+    const getAssetLogo = (symbol: string) => {
+      const colors = ['#00FF87', '#00D9FF', '#8B5CF6', '#EF4444', '#F59E0B', '#10B981'];
+      const bgColor = colors[Math.floor(Math.random() * colors.length)];
+      
+      return (
+        <div 
+          className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white text-sm"
+          style={{ backgroundColor: `${bgColor}40`, border: `2px solid ${bgColor}80` }}
+        >
+          {symbol.slice(0, 2)}
+        </div>
+      );
+    };
 
     return (
       <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.05 * index }}
-        className={`border rounded-lg p-4 hover:bg-white/5 transition-all ${
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.03 * index }}
+        className={`grid grid-cols-[120px,80px,120px,140px,1fr,80px] gap-4 px-6 py-4 border-b border-white/10 hover:bg-white/5 transition-all cursor-pointer ${
           priceChange === 'up' 
-            ? 'border-fortune-green/50 bg-fortune-green/10'
+            ? 'bg-fortune-green/5'
             : priceChange === 'down'
-            ? 'border-red-500/50 bg-red-500/10'
-            : 'border-white/10'
+            ? 'bg-red-500/5'
+            : ''
         }`}
+        onClick={() => setSelectedAsset(asset)}
       >
-        <div className="flex items-center justify-between">
-          {/* Left: Asset Info */}
-          <div className="flex items-center gap-4 flex-1">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-fortune-green/20 to-fortune-electric/20 flex items-center justify-center">
-              <span className="text-fortune-green font-bold text-sm">{asset.symbol.slice(0, 2)}</span>
-            </div>
-            <div>
-              <h3 className="text-white font-bold">{asset.symbol}</h3>
-              <p className="text-gray-400 text-sm">{asset.name}</p>
-            </div>
-          </div>
-
-          {/* Center: Price */}
-          <div className="flex-1 text-center">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={asset.price}
-                initial={{ scale: 1.2, color: priceChange === 'up' ? '#00FF87' : priceChange === 'down' ? '#EF4444' : '#FFFFFF' }}
-                animate={{ scale: 1, color: '#FFFFFF' }}
-                transition={{ duration: 0.3 }}
-                className="text-white font-bold text-lg"
-              >
-                ${asset.price.toFixed(2)}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Right: Change & Action */}
-          <div className="flex items-center gap-6">
-            <div className="text-right">
-              <div className={`font-bold ${isPositive ? 'text-fortune-green' : 'text-red-500'}`}>
-                {isPositive ? '+' : ''}{asset.change24h.toFixed(2)}
-              </div>
-              <div className={`text-sm font-semibold flex items-center justify-end gap-1 ${isPositive ? 'text-fortune-green' : 'text-red-500'}`}>
-                {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                {Math.abs(asset.changePercent24h).toFixed(2)}%
-              </div>
-            </div>
-            <motion.button
-              onClick={() => setSelectedAsset(asset)}
-              className="px-4 py-2 bg-fortune-green/20 border border-fortune-green/50 text-fortune-green font-semibold rounded-lg hover:bg-fortune-green/30 transition-all"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+        {/* Compra */}
+        <div className="flex items-center gap-3">
+          <motion.button
+            className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/50 text-blue-400 text-xs font-bold hover:bg-blue-500/30 transition-all flex items-center justify-center"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedAsset(asset);
+            }}
+          >
+            C
+          </motion.button>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={asset.price}
+              initial={{ scale: 1.1, color: priceChange === 'up' ? '#00FF87' : priceChange === 'down' ? '#EF4444' : '#FFFFFF' }}
+              animate={{ scale: 1, color: '#FFFFFF' }}
+              transition={{ duration: 0.3 }}
+              className="text-white font-semibold text-sm"
             >
-              Operar
-            </motion.button>
+              ${asset.price.toFixed(2)}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+
+        {/* Posiciones */}
+        <div className="flex items-center justify-center">
+          <span className="text-gray-400 text-sm">0</span>
+        </div>
+
+        {/* 1D (Daily Change) */}
+        <div className="flex flex-col justify-center">
+          <div className={`font-semibold text-sm ${isPositive ? 'text-fortune-green' : 'text-red-500'}`}>
+            ${asset.price.toFixed(2)}
           </div>
+          <div className={`text-xs font-semibold flex items-center gap-1 ${isPositive ? 'text-fortune-green' : 'text-red-500'}`}>
+            {isPositive ? '↑' : '↓'}
+            {Math.abs(asset.changePercent24h).toFixed(2)}%
+          </div>
+        </div>
+
+        {/* Gráfico (Sparkline) */}
+        <div className="flex items-center">
+          <ResponsiveContainer width="100%" height={40}>
+            <LineChart data={sparklineData}>
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke={isPositive ? "#00FF87" : "#EF4444"}
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={true}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Mercado (Asset Name) */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <h3 className="text-white font-semibold text-sm">{asset.name}</h3>
+            <p className="text-gray-500 text-xs">{asset.symbol}</p>
+          </div>
+        </div>
+
+        {/* Logo */}
+        <div className="flex items-center justify-end">
+          {getAssetLogo(asset.symbol)}
         </div>
       </motion.div>
     );
@@ -286,11 +347,122 @@ export default function TradingPage() {
           </motion.div>
         </div>
 
-        {/* Last Updated */}
+        {/* Search and Filters */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
+          className="mb-6 flex items-center gap-4"
+        >
+          {/* Search Bar */}
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              placeholder="Buscar activos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-3 pl-12 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-gray-500 focus:outline-none focus:border-fortune-green/50 focus:ring-2 focus:ring-fortune-green/20 transition-all"
+            />
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex gap-2">
+            <motion.button
+              onClick={() => setActiveFilter('indices')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeFilter === 'indices'
+                  ? 'bg-fortune-green/20 border border-fortune-green/50 text-fortune-green'
+                  : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              Índices
+            </motion.button>
+            <motion.button
+              onClick={() => setActiveFilter('stocks')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeFilter === 'stocks'
+                  ? 'bg-fortune-green/20 border border-fortune-green/50 text-fortune-green'
+                  : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <DollarSign className="w-4 h-4" />
+              Acciones
+            </motion.button>
+            <motion.button
+              onClick={() => setActiveFilter('crypto')}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                activeFilter === 'crypto'
+                  ? 'bg-fortune-green/20 border border-fortune-green/50 text-fortune-green'
+                  : 'bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+              Crypto
+            </motion.button>
+            {activeFilter !== 'all' && (
+              <motion.button
+                onClick={() => setActiveFilter('all')}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="px-3 py-2 rounded-lg text-sm font-semibold bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 transition-all"
+              >
+                Limpiar
+              </motion.button>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Assets Table */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="bg-[#0a0a0f] border border-white/10 rounded-xl shadow-lg shadow-white/5 overflow-hidden mb-8"
+        >
+          {/* Table Header */}
+          <div className="grid grid-cols-[120px,80px,120px,140px,1fr,80px] gap-4 px-6 py-4 border-b border-white/10 bg-white/5">
+            <div className="text-gray-400 text-sm font-semibold">Compra</div>
+            <div className="text-gray-400 text-sm font-semibold text-center">Posiciones</div>
+            <div className="text-gray-400 text-sm font-semibold">1D</div>
+            <div className="text-gray-400 text-sm font-semibold">Gráfico</div>
+            <div className="text-gray-400 text-sm font-semibold">Mercado</div>
+            <div className="text-gray-400 text-sm font-semibold text-right">Logo</div>
+          </div>
+
+          {/* Table Body */}
+          <div>
+            {filteredAssets.length > 0 ? (
+              filteredAssets.map((asset, index) => (
+                <AssetTableRow key={asset.id} asset={asset} index={index} />
+              ))
+            ) : (
+              <div className="text-center py-20">
+                <div className="text-gray-500 text-lg mb-2">No se encontraron activos</div>
+                <div className="text-gray-600 text-sm">Intenta ajustar los filtros o la búsqueda</div>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Last Updated */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7 }}
           className="text-center mb-8"
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full">
@@ -305,72 +477,6 @@ export default function TradingPage() {
             </span>
           </div>
         </motion.div>
-
-        {/* Stocks Section */}
-        {stockAssets.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mb-8"
-          >
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-xl p-6 shadow-lg shadow-white/5">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                <DollarSign className="w-6 h-6 text-blue-400" />
-                Acciones
-              </h2>
-              <div className="space-y-3">
-                {stockAssets.map((asset, index) => (
-                  <AssetRow key={asset.id} asset={asset} index={index} />
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Crypto Section */}
-        {cryptoAssets.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="mb-8"
-          >
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-xl p-6 shadow-lg shadow-white/5">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                <Zap className="w-6 h-6 text-fortune-green" />
-                Criptomonedas
-              </h2>
-              <div className="space-y-3">
-                {cryptoAssets.map((asset, index) => (
-                  <AssetRow key={asset.id} asset={asset} index={index} />
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Forex Section */}
-        {forexAssets.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="mb-8"
-          >
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-xl p-6 shadow-lg shadow-white/5">
-              <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                <Activity className="w-6 h-6 text-purple-400" />
-                Divisas (Forex)
-              </h2>
-              <div className="space-y-3">
-                {forexAssets.map((asset, index) => (
-                  <AssetRow key={asset.id} asset={asset} index={index} />
-                ))}
-              </div>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
 
       {/* Trading Modal */}
